@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Stat Monitor Overlay
+Comment=Transparent hardware monitor showing CPU, RAM, and NVMe SSD Life
+Exec=stat-monitor
+Icon=stat-monitor
+Terminal=false
+Type=Application
+Categories=System;Monitor;Utility;
+Keywords=system;monitor;cpu;ram;nvme;ssd;health;life;overlay;
+StartupNotify=false
