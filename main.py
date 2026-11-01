@@ -27,7 +27,7 @@ from ui import StatOverlayWindow
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Transparent Desktop Stat Monitor (CPU, RAM & NVMe SSD Life)"
+        description="Transparent Desktop Stat Monitor (CPU, RAM, Disks & NVMe SSD Life)"
     )
     parser.add_argument(
         '--version', action='version', version=f'%(prog)s {__version__}'
@@ -45,6 +45,11 @@ def main():
         '--desktop',
         action='store_true',
         help="Pin behind windows onto desktop background (desktop mode)",
+    )
+    parser.add_argument(
+        '--no-disks',
+        action='store_true',
+        help="Launch with disk partitions section hidden",
     )
     parser.add_argument(
         '--clear',
@@ -78,6 +83,9 @@ def main():
         cfg.set('on_top', True, autosave=False)
     elif args.desktop:
         cfg.set('on_top', False, autosave=False)
+
+    if args.no_disks:
+        cfg.set('show_disks', False, autosave=False)
 
     if args.clear:
         cfg.set('opacity', 0.0, autosave=False)

@@ -215,6 +215,125 @@ def generate_css(opacity=0.75):
         border-radius: 3px;
     }}
 
+    /* Partition Item Box */
+    .partition-item {{
+        background-color: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 10px;
+        padding: 7px 9px;
+        margin-bottom: 5px;
+    }}
+
+    .partition-item:hover {{
+        background-color: rgba(255, 255, 255, 0.07);
+        border-color: rgba(255, 255, 255, 0.12);
+    }}
+
+    .partition-mount {{
+        color: #f1f5f9;
+        font-size: 12px;
+        font-weight: 700;
+        font-family: monospace, sans-serif;
+    }}
+
+    .partition-device {{
+        color: #64748b;
+        font-size: 10px;
+        font-weight: 600;
+        font-family: monospace, sans-serif;
+    }}
+
+    .partition-pct-good {{
+        color: #38bdf8;
+        font-size: 13px;
+        font-weight: 800;
+        font-family: monospace, sans-serif;
+    }}
+
+    .partition-pct-warn {{
+        color: #fbbf24;
+        font-size: 13px;
+        font-weight: 800;
+        font-family: monospace, sans-serif;
+    }}
+
+    .partition-pct-crit {{
+        color: #f87171;
+        font-size: 13px;
+        font-weight: 800;
+        font-family: monospace, sans-serif;
+    }}
+
+    .disk-free-val {{
+        color: #10b981;
+        font-size: 11px;
+        font-weight: 700;
+        font-family: monospace, sans-serif;
+    }}
+
+    .disk-used-val {{
+        color: #94a3b8;
+        font-size: 10px;
+        font-weight: 600;
+        font-family: monospace, sans-serif;
+    }}
+
+    .disk-badge {{
+        background-color: rgba(56, 189, 248, 0.12);
+        color: #38bdf8;
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        border-radius: 6px;
+        padding: 1px 6px;
+        font-size: 10px;
+        font-weight: 700;
+    }}
+
+    /* Disk Partition Progress Bars */
+    progressbar.disk-bar-good progress {{
+        background-image: linear-gradient(to right, #06b6d4, #3b82f6);
+        border-radius: 6px;
+        box-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+    }}
+
+    progressbar.disk-bar-warn progress {{
+        background-image: linear-gradient(to right, #f59e0b, #f97316);
+        border-radius: 6px;
+        box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+    }}
+
+    progressbar.disk-bar-crit progress {{
+        background-image: linear-gradient(to right, #ef4444, #dc2626);
+        border-radius: 6px;
+        box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+    }}
+
+    /* ScrolledWindow for Disk list if multiple partitions */
+    scrolledwindow {{
+        background-color: transparent;
+        border: none;
+    }}
+
+    scrolledwindow viewport {{
+        background-color: transparent;
+        border: none;
+    }}
+
+    scrollbar trough {{
+        background-color: rgba(255, 255, 255, 0.05);
+        border-radius: 4px;
+    }}
+
+    scrollbar slider {{
+        background-color: rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+        min-width: 6px;
+        min-height: 6px;
+    }}
+
+    scrollbar slider:hover {{
+        background-color: rgba(255, 255, 255, 0.4);
+    }}
+
     /* Health Badges */
     .badge-excellent {{
         background-color: rgba(16, 185, 129, 0.18);

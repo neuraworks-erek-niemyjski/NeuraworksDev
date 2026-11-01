@@ -57,8 +57,84 @@ class SystemMonitor:
                         return round(entry.current, 1)
         return None
 
+    def get_disk_partitions(self):
+        """
+        Enumerate all active physical and persistent disk partitions with
+        usage percentage, GB used, GB free, and total capacity.
+        Filters out loopback devices (e.g. Snaps), pseudo filesystems,
+        and container bind mounts.
+        """
+        partitions = []
+        seen_mountpoints = set()
+
+        ignored_fstypes = {
+            'squashfs', 'iso9660', 'nullfs', 'ramfs', 'devtmpfs',
+            'tmpfs', 'overlay', 'aufs', 'efivarfs', 'none'
+        }
+        ignored_prefixes = (
+            '/snap', '/var/lib/docker', '/var/lib/containers',
+            '/run/user', '/run/credentials'
+        )
+
+        try:
+            raw_partitions = psutil.disk_partitions(all=False)
+        except Exception as e:
+            print(f"[SystemMonitor] Warning: Could not enumerate disk partitions: {e}")
+            return []
+
+        for part in raw_partitions:
+            # Skip loopback devices (e.g., Snap packages)
+            if part.device.startswith(('/dev/loop', 'loop')):
+                continue
+
+            # Skip virtual / memory / overlay filesystems
+            if part.fstype in ignored_fstypes:
+                continue
+
+            # Skip container, snap, or ephemeral user mounts
+            if part.mountpoint.startswith(ignored_prefixes):
+                continue
+
+            if part.mountpoint in seen_mountpoints:
+                continue
+
+            try:
+                usage = psutil.disk_usage(part.mountpoint)
+            except (PermissionError, FileNotFoundError, OSError):
+                continue
+
+            # Exclude special zero-size filesystems
+            if usage.total == 0:
+                continue
+
+            seen_mountpoints.add(part.mountpoint)
+
+            # Device short name (e.g., 'nvme0n1p2' from '/dev/nvme0n1p2')
+            device_short = part.device.split('/')[-1] if '/' in part.device else part.device
+
+            # Format GB free and used using binary prefix (1 GiB = 1024^3 bytes)
+            total_gb = round(usage.total / (1024**3), 2)
+            used_gb = round(usage.used / (1024**3), 2)
+            free_gb = round(usage.free / (1024**3), 2)
+            percent = round(usage.percent, 1)
+
+            partitions.append({
+                'device': part.device,
+                'device_short': device_short,
+                'mountpoint': part.mountpoint,
+                'fstype': part.fstype,
+                'total_gb': total_gb,
+                'used_gb': used_gb,
+                'free_gb': free_gb,
+                'percent': percent,
+            })
+
+        # Sort partitions: root '/' first, then alphabetical by mountpoint
+        partitions.sort(key=lambda x: (0 if x['mountpoint'] == '/' else 1, x['mountpoint']))
+        return partitions
+
     def sample(self):
-        """Collect snapshot of CPU, RAM, and system stats."""
+        """Collect snapshot of CPU, RAM, swap, and disk partition stats."""
         # CPU
         cpu_total = psutil.cpu_percent(interval=None)
         cpu_cores = psutil.cpu_percent(interval=None, percpu=True)
@@ -87,6 +163,9 @@ class SystemMonitor:
         swap_used_gb = round(swap.used / (1024**3), 2)
         swap_total_gb = round(swap.total / (1024**3), 2)
 
+        # Disk Partitions
+        disks = self.get_disk_partitions()
+
         return {
             'cpu': {
                 'percent': cpu_total,
@@ -107,4 +186,5 @@ class SystemMonitor:
                 'used_gb': swap_used_gb,
                 'total_gb': swap_total_gb,
             },
+            'disks': disks,
         }

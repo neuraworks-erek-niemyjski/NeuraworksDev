@@ -34,10 +34,18 @@ class StatOverlayWindow(Gtk.Window):
         self.is_locked = self.config_mgr.get('locked', False)
         self.on_top = self.config_mgr.get('on_top', False)
         self.show_per_core = self.config_mgr.get('show_per_core', True)
+        self.show_disks = self.config_mgr.get('show_disks', True)
 
         self.drag_start_x = 0
         self.drag_start_y = 0
         self.core_bars = []
+        self.partition_widgets = {}
+        self.last_partition_keys = []
+        self.disks_section_box = None
+        self.disks_container = None
+        self.disks_summary_label = None
+        self.compact_disk_val = None
+        self.disk_pill = None
 
         # Window properties
         self.set_title("System Stat Overlay")
@@ -257,6 +265,36 @@ class StatOverlayWindow(Gtk.Window):
 
         card.pack_start(ram_box, False, False, 0)
 
+        # --- DISK STORAGE SECTION ---
+        self.disks_section_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.disks_section_box.get_style_context().add_class('stat-section')
+
+        # Header: Name & Total Free Space Badge
+        disks_top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        disks_name = Gtk.Label(label="🖴 STORAGE")
+        disks_name.get_style_context().add_class('metric-name')
+        disks_top.pack_start(disks_name, False, False, 0)
+
+        self.disks_summary_label = Gtk.Label(label="-- GB Free")
+        self.disks_summary_label.get_style_context().add_class('disk-badge')
+        disks_top.pack_end(self.disks_summary_label, False, False, 0)
+        self.disks_section_box.pack_start(disks_top, False, False, 0)
+
+        # Scrolled window in case of many mounted partitions
+        self.disks_scrolled = Gtk.ScrolledWindow()
+        self.disks_scrolled.set_propagate_natural_height(True)
+        self.disks_scrolled.set_max_content_height(220)
+        self.disks_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.disks_scrolled.set_shadow_type(Gtk.ShadowType.NONE)
+
+        # Container for individual partition rows
+        self.disks_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        self.disks_scrolled.add(self.disks_container)
+        self.disks_section_box.pack_start(self.disks_scrolled, True, True, 0)
+
+        self.disks_section_box.set_visible(self.show_disks)
+        card.pack_start(self.disks_section_box, False, False, 0)
+
         # --- NVMe SSD SECTION ---
         ssd_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         ssd_box.get_style_context().add_class('stat-section')
@@ -412,6 +450,18 @@ class StatOverlayWindow(Gtk.Window):
         ram_pill.pack_start(self.compact_ram_val, False, False, 0)
         pill.pack_start(ram_pill, False, False, 0)
 
+        # Disk Pill
+        self.disk_pill = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        self.disk_pill.get_style_context().add_class('compact-pill')
+        lbl_d = Gtk.Label(label="🖴 DISK")
+        lbl_d.get_style_context().add_class('compact-label')
+        self.disk_pill.pack_start(lbl_d, False, False, 0)
+        self.compact_disk_val = Gtk.Label(label="0%")
+        self.compact_disk_val.get_style_context().add_class('compact-val')
+        self.compact_disk_val.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0.22, 0.74, 0.97, 1.0))
+        self.disk_pill.pack_start(self.compact_disk_val, False, False, 0)
+        pill.pack_start(self.disk_pill, False, False, 0)
+
         # NVMe Pill
         ssd_pill = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         ssd_pill.get_style_context().add_class('compact-pill')
@@ -474,6 +524,149 @@ class StatOverlayWindow(Gtk.Window):
         self.config_mgr.set('opacity', op)
         self.apply_theme()
 
+    def update_disk_partitions_ui(self, disks):
+        """Update disk partition metrics, free space, and progress bars."""
+        if not disks:
+            if self.disks_summary_label:
+                self.disks_summary_label.set_text("No Disks")
+            if self.compact_disk_val:
+                self.compact_disk_val.set_text("N/A")
+            return
+
+        total_free_gb = sum(d['free_gb'] for d in disks)
+        if self.disks_summary_label:
+            if total_free_gb >= 10.0:
+                self.disks_summary_label.set_text(f"{total_free_gb:.1f} GB Free")
+            else:
+                self.disks_summary_label.set_text(f"{total_free_gb:.2f} GB Free")
+
+        # Check if the list of partition mountpoints changed
+        current_keys = [d['mountpoint'] for d in disks]
+        if current_keys != self.last_partition_keys or not self.partition_widgets:
+            # Rebuild widgets
+            for child in self.disks_container.get_children():
+                self.disks_container.remove(child)
+            self.partition_widgets.clear()
+
+            for d in disks:
+                mount = d['mountpoint']
+                item_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+                item_box.get_style_context().add_class('partition-item')
+
+                # Row 1: Mount point & used percent
+                row1 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+                mount_lbl = Gtk.Label(label=mount)
+                mount_lbl.get_style_context().add_class('partition-mount')
+                mount_lbl.set_halign(Gtk.Align.START)
+                row1.pack_start(mount_lbl, False, False, 0)
+
+                dev_info = f"({d['device_short']} • {d['fstype']})"
+                dev_lbl = Gtk.Label(label=dev_info)
+                dev_lbl.get_style_context().add_class('partition-device')
+                dev_lbl.set_halign(Gtk.Align.START)
+                dev_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+                row1.pack_start(dev_lbl, True, True, 0)
+
+                pct = d['percent']
+                if pct >= 90.0:
+                    pct_cls = 'partition-pct-crit'
+                    bar_cls = 'disk-bar-crit'
+                elif pct >= 75.0:
+                    pct_cls = 'partition-pct-warn'
+                    bar_cls = 'disk-bar-warn'
+                else:
+                    pct_cls = 'partition-pct-good'
+                    bar_cls = 'disk-bar-good'
+
+                pct_lbl = Gtk.Label(label=f"{pct:.1f}%")
+                pct_lbl.get_style_context().add_class(pct_cls)
+                pct_lbl.set_halign(Gtk.Align.END)
+                row1.pack_end(pct_lbl, False, False, 0)
+                item_box.pack_start(row1, False, False, 0)
+
+                # Row 2: Progress bar
+                bar = Gtk.ProgressBar()
+                bar.get_style_context().add_class(bar_cls)
+                frac = min(1.0, max(0.0, pct / 100.0))
+                bar.set_fraction(frac)
+                item_box.pack_start(bar, False, False, 0)
+
+                # Row 3: GB free and used / total
+                row3 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+                free_str = f"{d['free_gb']:.1f} GB free" if d['free_gb'] >= 10.0 else f"{d['free_gb']:.2f} GB free"
+                free_lbl = Gtk.Label(label=free_str)
+                free_lbl.get_style_context().add_class('disk-free-val')
+                free_lbl.set_halign(Gtk.Align.START)
+                row3.pack_start(free_lbl, False, False, 0)
+
+                used_str = f"{d['used_gb']:.1f} / {d['total_gb']:.1f} GB"
+                used_lbl = Gtk.Label(label=used_str)
+                used_lbl.get_style_context().add_class('disk-used-val')
+                used_lbl.set_halign(Gtk.Align.END)
+                row3.pack_end(used_lbl, False, False, 0)
+                item_box.pack_start(row3, False, False, 0)
+
+                self.disks_container.pack_start(item_box, False, False, 0)
+
+                self.partition_widgets[mount] = {
+                    'pct_label': pct_lbl,
+                    'bar': bar,
+                    'free_label': free_lbl,
+                    'used_label': used_lbl,
+                    'item_box': item_box,
+                }
+
+            self.last_partition_keys = current_keys
+            self.disks_container.show_all()
+        else:
+            # Efficient in-place update
+            for d in disks:
+                mount = d['mountpoint']
+                pw = self.partition_widgets.get(mount)
+                if not pw:
+                    continue
+
+                pct = d['percent']
+                pw['pct_label'].set_text(f"{pct:.1f}%")
+                pw['bar'].set_fraction(min(1.0, max(0.0, pct / 100.0)))
+
+                free_str = f"{d['free_gb']:.1f} GB free" if d['free_gb'] >= 10.0 else f"{d['free_gb']:.2f} GB free"
+                pw['free_label'].set_text(free_str)
+                pw['used_label'].set_text(f"{d['used_gb']:.1f} / {d['total_gb']:.1f} GB")
+
+                # Dynamic color class
+                p_ctx = pw['pct_label'].get_style_context()
+                b_ctx = pw['bar'].get_style_context()
+                for cls in ['partition-pct-good', 'partition-pct-warn', 'partition-pct-crit']:
+                    p_ctx.remove_class(cls)
+                for cls in ['disk-bar-good', 'disk-bar-warn', 'disk-bar-crit']:
+                    b_ctx.remove_class(cls)
+
+                if pct >= 90.0:
+                    p_ctx.add_class('partition-pct-crit')
+                    b_ctx.add_class('disk-bar-crit')
+                elif pct >= 75.0:
+                    p_ctx.add_class('partition-pct-warn')
+                    b_ctx.add_class('disk-bar-warn')
+                else:
+                    p_ctx.add_class('partition-pct-good')
+                    b_ctx.add_class('disk-bar-good')
+
+        # Update Compact Pill
+        if self.compact_disk_val and disks:
+            # Highlight root partition or primary disk in pill
+            root_d = next((d for d in disks if d['mountpoint'] == '/'), disks[0])
+            self.compact_disk_val.set_text(f"{root_d['percent']:.0f}% ({root_d['free_gb']:.0f}G free)")
+
+            tooltip_lines = ["Disk Partitions:"]
+            for d in disks:
+                free_fmt = f"{d['free_gb']:.1f} GB free" if d['free_gb'] >= 10.0 else f"{d['free_gb']:.2f} GB free"
+                tooltip_lines.append(f"• {d['mountpoint']} ({d['device_short']}): {d['percent']}% used • {free_fmt} of {d['total_gb']:.1f} GB")
+            if self.disk_pill:
+                self.disk_pill.set_tooltip_text("\n".join(tooltip_lines))
+
     def on_tick(self):
         """Main periodic refresh callback."""
         try:
@@ -512,6 +705,10 @@ class StatOverlayWindow(Gtk.Window):
 
             swap = sys_data['swap']
             self.swap_label.set_text(f"Swap: {swap['used_gb']:.1f}/{swap['total_gb']:.1f} GB")
+
+            # --- Update Disks ---
+            disks = sys_data.get('disks', [])
+            self.update_disk_partitions_ui(disks)
 
             # --- Update NVMe ---
             life_left = ssd_data.get('life_left_percent', 100)
@@ -584,6 +781,14 @@ class StatOverlayWindow(Gtk.Window):
         elif keyval in [Gdk.KEY_p, Gdk.KEY_P]:
             self.toggle_placement()
             return True
+        # D: Disks toggle
+        elif keyval in [Gdk.KEY_d, Gdk.KEY_D]:
+            self.show_disks = not self.show_disks
+            self.config_mgr.set('show_disks', self.show_disks)
+            if self.disks_section_box:
+                self.disks_section_box.set_visible(self.show_disks)
+            self.resize(1, 1)
+            return True
         # L: Lock toggle
         elif keyval in [Gdk.KEY_l, Gdk.KEY_L]:
             self.is_locked = not self.is_locked
@@ -627,6 +832,18 @@ class StatOverlayWindow(Gtk.Window):
             self.resize(1, 1)
         core_toggle.connect("toggled", _toggle_cores)
         menu.append(core_toggle)
+
+        # Disk Partitions toggle
+        disks_toggle = Gtk.CheckMenuItem(label="Show Disk Partitions (D)")
+        disks_toggle.set_active(self.show_disks)
+        def _toggle_disks(item):
+            self.show_disks = item.get_active()
+            self.config_mgr.set('show_disks', self.show_disks)
+            if self.disks_section_box:
+                self.disks_section_box.set_visible(self.show_disks)
+            self.resize(1, 1)
+        disks_toggle.connect("toggled", _toggle_disks)
+        menu.append(disks_toggle)
 
         # Lock position
         lock_toggle = Gtk.CheckMenuItem(label="Lock Position (Prevent Drag)")

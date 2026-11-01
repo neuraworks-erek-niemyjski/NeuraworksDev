@@ -22,6 +22,7 @@ DEFAULT_CONFIG = {
     'on_top': False,       # False: Pin below / desktop level, True: Always on top
     'stick_all_workspaces': True,
     'show_per_core': True,
+    'show_disks': True,
     'locked': False,
     'refresh_ms': 1000,
     'theme': 'cyber_slate',
@@ -83,6 +84,7 @@ class ConfigManager:
             'on_top': lambda v: isinstance(v, bool),
             'locked': lambda v: isinstance(v, bool),
             'show_per_core': lambda v: isinstance(v, bool),
+            'show_disks': lambda v: isinstance(v, bool),
             'stick_all_workspaces': lambda v: isinstance(v, bool),
             'refresh_ms': lambda v: isinstance(v, int) and 250 <= v <= 60000,
             'theme': lambda v: isinstance(v, str) and len(v) < 64,

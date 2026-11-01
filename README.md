@@ -29,6 +29,13 @@ Built with Python 3, PyGObject (GTK 3), and UDisks2 DBus telemetry.
   - Live RAM usage percentage with glowing progress bar
   - Exact Used and Total memory (e.g., `13.4 / 30.2 GB`)
   - Available free memory and Swap partition statistics
+- **🖴 Disk Partitions & Storage**:
+  - Live space usage across all active disk partitions (mountpoint, device, fstype)
+  - Space used as a percentage with dynamic warning thresholds (cyan <75%, amber 75%–90%, red >90%)
+  - Free space reported directly in gigabytes (`GB free`) alongside used/total capacity
+  - Individual glowing gradient progress bars for each partition
+  - Intelligent filtering to exclude loopback devices (e.g. Snaps), virtual mounts (`tmpfs`, `devtmpfs`), and container volumes
+  - Adaptive scroll container supporting systems with multiple mounted partitions or external drives
 - **💾 NVMe SSD Health & Remaining Life**:
   - **Remaining Life Left %** (calculated from NVMe wear percentage)
   - Color-coded Health Status Badge (`EXCELLENT`, `GOOD`, `WARNING`, `CRITICAL`)
@@ -45,7 +52,7 @@ Built with Python 3, PyGObject (GTK 3), and UDisks2 DBus telemetry.
 1. **Full Dashboard Mode**:
    - Comprehensive glassmorphic card with translucent slate background and matching glowing light blue indicators.
 2. **Compact Floating Pill Mode**:
-   - An ultra-minimal horizontal pill bar (`⚡ CPU • 🧠 RAM • 💾 SSD`) designed to sit unobtrusively on any corner of your wallpaper.
+   - An ultra-minimal horizontal pill bar (`⚡ CPU • 🧠 RAM • 🖴 DISK • 💾 SSD`) designed to sit unobtrusively on any corner of your wallpaper, with a detailed multi-partition hover tooltip.
 3. **Desktop Pinning vs HUD Overlay**:
    - **Pin to Desktop**: Sits on the wallpaper underneath normal open application windows.
    - **Always on Top (HUD)**: Floats above windows for monitoring during gaming or benchmarking.
@@ -66,6 +73,7 @@ Built with Python 3, PyGObject (GTK 3), and UDisks2 DBus telemetry.
 | **Context Menu & Settings** | Right-click anywhere on the overlay |
 | **Toggle Dashboard / Compact** | `M` or `Tab` (or click `🗕` / `⤢`) |
 | **Toggle Pin to Desktop / HUD** | `P` (or click `📌` / `🖵`) |
+| **Toggle Disk Partitions** | `D` (or toggle via right-click menu) |
 | **Lock / Unlock Position** | `L` (prevents accidental dragging) |
 | **Adjust Opacity** | `0` (0% Clear Glass), `1` (20%), `2` (50%), `3` (75%), `4` (90%) |
 | **Close / Exit** | `Esc` or `Q` (or click `✕`) |
@@ -164,6 +172,7 @@ chmod +x run.sh install_desktop_entry.sh main.py
 ./run.sh --dashboard         # Start directly in full dashboard mode
 ./run.sh --on-top            # Float above other windows
 ./run.sh --desktop           # Pin to desktop background below windows
+./run.sh --no-disks          # Launch with disk partitions section hidden
 ./run.sh --opacity 0.0       # Set custom background opacity (0.0 - 0.95)
 ./run.sh --refresh 500       # Set refresh rate in ms (e.g. 500ms or 1000ms)
 ```
